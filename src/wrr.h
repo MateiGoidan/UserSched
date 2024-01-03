@@ -19,28 +19,37 @@ struct Process {
 struct User
 {
     int weight;
-    struct Process* procese;
-    int nr_procese;
+    struct Process* processes;
+    int processes_nr;
+    int remaining_processes;
 };
 
-void wrr(struct User* users, struct Process Coada[])
+void wrr(struct User* users, struct Process Coada[], bool *Ok, int *n)
 {
+    
     int l_coada = -1;
-    for(int i = 0; i <= sizeof(users) / sizeof(users[0]); i++)
+    (*Ok) = false;
+    for(int i = 0; i <= (sizeof(users) / sizeof(users[0]) + 1); i++)
     {
         int nr = 0;
-        for(int j = 0; j < sizeof(users[i].procese[j]) / sizeof(users[i].procese[0]); j++)
+        if(users[i].remaining_processes > 0)
         {
-            if(nr >= users[i].weight)
-                break;
-            else
+            (*Ok) = true;
+            for(int j = (users[i].processes_nr - users[i].remaining_processes); j < users[i].processes_nr; j++)
             {
-                if(!users[i].procese[j].isComplete)
+
+                if(nr >= users[i].weight)
+                    break;
+                else
                 {
-                    l_coada ++;
-                    Coada[l_coada] = users[i].procese[j];
-                    nr ++;
-                    users[i].nr_procese --;
+                    if(!users[i].processes[j].isComplete)
+                    {
+                        l_coada ++;
+                        Coada[l_coada] = users[i].processes[j];
+                        nr ++;
+                        (*n) ++;
+                        users[i].remaining_processes --;
+                    }
                 }
             }
         }

@@ -17,8 +17,8 @@ struct Process procese[101] = {{1, 0, 6, 6, 0, 0, 0, false, false},
                                {3, 2, 3, 3, 0, 0, 0, false, false},
                                {4, 3, 2, 2, 0, 0, 0, false, false}};
 
-struct User utilizator[2] = {{4, processes, 4},
-                             {2, procese, 4}};
+struct User utilizator[2] = {{4, processes, 4, 4},
+                             {2, procese, 4, 4}};
 
 struct Process Coada[101];
 
@@ -104,11 +104,17 @@ void RoundRobin(struct Process processes[], const int n,
 
   int queue[100001];
   int fqueue = 0, rqueue = -1;
-  int currentTime = 0, numbExecuted = 0;
+  int currentTime = processes[0].arrivalTime, numbExecuted = 0;
+
+  for(int i = 1; i < n; i++)
+  {
+    if(currentTime < processes[i].arrivalTime)
+      currentTime = processes[i].arrivalTime;
+  }
 
   for (int i = 0; i < n; i++) {
     struct Process process = processes[i];
-    if (process.arrivalTime == 0 && !process.inQueue && !process.isComplete) {
+    if (process.arrivalTime == currentTime && !process.inQueue && !process.isComplete) {
       processes[i].inQueue = true;
       rqueue++;
       queue[rqueue] = i;
@@ -142,7 +148,6 @@ int sleep_time() { return genereaza_numar_nou() % 30 + 1; }
 int main() {
   // Predefined time quantum
   timeQuantum = 2;
-  int n = 4;
 
   /*
   // We must include a process that starts from the start
@@ -159,16 +164,27 @@ int main() {
   }
   */
 
-  wrr(utilizator, Coada);
+  bool Ok_WRR = true;
 
-  for(int i = 0; i < sizeof(Coada) / sizeof(Coada[0]); i++)
-    printf("%d ", Coada[i].pid);
+  int n = 0;
 
-  qsort(processes, n, sizeof(struct Process), ProcessCmp);
+  wrr(utilizator, Coada, &Ok_WRR, &n);
 
-  RoundRobin(processes, n, timeQuantum);
+  while (Ok_WRR)
+  {
 
-  Output(processes, n);
+    qsort(Coada, n, sizeof(struct Process), ProcessCmp);
+
+    RoundRobin(Coada, n, timeQuantum);
+
+    Output(Coada, n);
+
+    n = 0;
+
+    struct Process Coada[101] = {0};
+
+    wrr(utilizator, Coada, &Ok_WRR, &n);
+  }
 
   return 0;
 }
