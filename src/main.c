@@ -1,129 +1,113 @@
+#include "../hfiles/process.h"
+#include "../hfiles/user.h"
+#include <linux/limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <time.h>
-#include "wrr.h"
 
-int timeQuantum;
+#define MAX_VALUE 99999
 
-struct Process processes[101] = {{1, 0, 5, 5, 0, 0, 0, false, false},
-                                 {2, 1, 4, 4, 0, 0, 0, false, false},
-                                 {3, 2, 2, 2, 0, 0, 0, false, false},
-                                 {4, 3, 1, 1, 0, 0, 0, false, false}};
-                                
-struct Process procese[101] = {{1, 0, 6, 6, 0, 0, 0, false, false},
-                               {2, 1, 5, 5, 0, 0, 0, false, false},
-                               {3, 2, 3, 3, 0, 0, 0, false, false},
-                               {4, 3, 2, 2, 0, 0, 0, false, false}};
+int timeQuantum, numbUsers;
 
-struct User utilizator[2] = {{4, processes, 4, 4},
-                             {2, procese, 4, 4}};
+struct Process processesA[101] = {{1, 5, 5, 0, 0, 0, false},
+                                  {2, 4, 4, 0, 0, 0, false},
+                                  {3, 2, 2, 0, 0, 0, false},
+                                  {4, 1, 1, 0, 0, 0, false}};
 
-struct Process Coada[101];
+struct Process processesB[101] = {{1, 6, 6, 0, 0, 0, false},
+                                  {2, 5, 5, 0, 0, 0, false},
+                                  {3, 1, 3, 0, 0, 0, false},
+                                  {4, 2, 2, 0, 0, 0, false}};
 
+struct User users[2] = {{4, processesA, 4, 4}, {2, processesB, 4, 4}};
 
-int genereaza_numar_nou() {
+int NumbGenerator() {
   srand(time(NULL) ^ clock()); // Set the seed for the random number generator
   return rand();
 }
+
+int ProcessTime() { return NumbGenerator() % 120 + 1; }
+
+int SleepTime() { return NumbGenerator() % 30 + 1; }
 
 int ProcessCmp(const void *a, const void *b) {
   const struct Process *processA = (struct Process *)a;
   const struct Process *processB = (struct Process *)b;
 
-  if (processA->arrivalTime < processB->arrivalTime) {
+  if (processA->burstTimeRemaining < processB->burstTimeRemaining) {
     return -1;
-  } else if (processA->arrivalTime > processB->arrivalTime) {
+  } else if (processA->burstTimeRemaining > processB->burstTimeRemaining) {
     return 1;
   } else {
     return 0;
   }
 }
 
-void CheckForNewArrivals(struct Process processes[], const int n,
-                         const int timeQuantum, int queue[],
-                         const int *currentTime, int *rqueue) {
-  for (int i = 0; i < n; i++) {
-    struct Process process = processes[i];
-    if (process.arrivalTime <= *currentTime && !process.inQueue &&
-        !process.isComplete) {
-      processes[i].inQueue = true;
-      (*rqueue)++;
-      queue[*rqueue] = i;
+void WRR(struct User *users, struct Process queue[], bool *Ok, int *n) {
+  (*Ok) = false;
+  for (int i = 0; i < numbUsers; i++) {
+    int numb = 0;
+    if (users[i].remaining_processes > 0) {
+      (*Ok) = true;
+      for (int j = (users[i].processes_nr - users[i].remaining_processes);
+           j < users[i].processes_nr; j++) {
+        if (numb >= users[i].weight)
+          break;
+        else {
+          if (!users[i].processes[j].isComplete) {
+            queue[*n] = users[i].processes[j];
+            (*n)++;
+            numb++;
+            users[i].remaining_processes--;
+          }
+        }
+      }
     }
   }
 }
 
-void UpdateQueue(struct Process processes[], const int n, const int timeQuantum,
-                 int queue[], int *fqueue, int *rqueue, int *currentTime,
-                 int *numbExecuted) {
-  int index = queue[*fqueue];
-  (*fqueue)++;
+void RR(struct Process *queue, const int n) {
+  // Declaring the run and wait queue
+  int runQueue[n];
+  int waithQueue[n];
+  int frunQueue = 0, rrunQueue = 0;
+  int fwaitQueue = 0, rwaitQueue = 0;
+  int currentTime = 0, numbExecuted = 0;
 
-  if (processes[index].burstTimeRemaining <= timeQuantum) {
-    processes[index].isComplete = true;
-    (*currentTime) += processes[index].burstTimeRemaining;
-    processes[index].completionTime = *currentTime;
-    processes[index].waitingTime = processes[index].completionTime -
-                                   processes[index].arrivalTime -
-                                   processes[index].burstTime;
-    processes[index].turnaroundTime =
-        processes[index].waitingTime + processes[index].burstTime;
-    processes[index].burstTimeRemaining = 0;
+  // Separating the processes into queues
+  runQueue[0] = 0;
+  rrunQueue++;
+  for (int i = 1; i < n; i++) {
+    waithQueue[i - 1] = i;
+    rwaitQueue++;
+  }
 
-    if (processes[index].waitingTime < 0)
-      processes[index].waitingTime = 0;
+  while (frunQueue < rrunQueue || fwaitQueue < rwaitQueue) {
+    int x = runQueue[frunQueue];
+    if (queue[x].burstTimeRemaining <= timeQuantum) {
+      currentTime += queue[x].burstTimeRemaining;
+      queue[x].completionTime = currentTime;
+      queue[x].isComplete = true;
+      queue[x].turnaroundTime = queue[x].waitingTime + queue[x].burstTime;
+      queue[x].burstTimeRemaining = 0;
+      numbExecuted++;
 
-    (*numbExecuted)++;
+      if (numbExecuted < n) {
+        int oldProcess = runQueue[frunQueue];
+        int newProcess = waithQueue[fwaitQueue];
+        runQueue[rrunQueue] = newProcess;
+        queue[newProcess].waitingTime = queue[oldProcess].completionTime;
+        rrunQueue++;
+        fwaitQueue++;
+      }
 
-    if (*numbExecuted < n) {
-      CheckForNewArrivals(processes, n, timeQuantum, queue, currentTime,
-                          rqueue);
+      frunQueue++;
+    } else {
+      queue[x].burstTimeRemaining -= timeQuantum;
+      currentTime += timeQuantum;
     }
-  } else {
-    processes[index].burstTimeRemaining -= timeQuantum;
-    (*currentTime) += timeQuantum;
-
-    if (*numbExecuted != n) {
-      CheckForNewArrivals(processes, n, timeQuantum, queue, currentTime,
-                          rqueue);
-    }
-
-    (*rqueue)++;
-    queue[*rqueue] = index;
-  }
-}
-
-void RoundRobin(struct Process processes[], const int n,
-                const int timeQuantum) {
-  if (n <= 0) {
-    printf("No processes!");
-    return;
-  }
-
-  int queue[100001];
-  int fqueue = 0, rqueue = -1;
-  int currentTime = processes[0].arrivalTime, numbExecuted = 0;
-
-  for(int i = 1; i < n; i++)
-  {
-    if(currentTime < processes[i].arrivalTime)
-      currentTime = processes[i].arrivalTime;
-  }
-
-  for (int i = 0; i < n; i++) {
-    struct Process process = processes[i];
-    if (process.arrivalTime == currentTime && !process.inQueue && !process.isComplete) {
-      processes[i].inQueue = true;
-      rqueue++;
-      queue[rqueue] = i;
-    }
-  }
-
-  while (fqueue <= rqueue) {
-    UpdateQueue(processes, n, timeQuantum, queue, &fqueue, &rqueue,
-                &currentTime, &numbExecuted);
   }
 }
 
@@ -141,50 +125,28 @@ void Output(struct Process processes[], const int n) {
   printf("Average Turnaround Time: %f\n", avgTurntaroundTime / n);
 }
 
-int process_time() { return genereaza_numar_nou() % 120 + 1; }
-
-int sleep_time() { return genereaza_numar_nou() % 30 + 1; }
-
-int main() {
-  // Predefined time quantum
+int main(int argc, char *argv[]) {
   timeQuantum = 2;
+  numbUsers = 2;
 
-  /*
-  // We must include a process that starts from the start
-  processes[0].pid = 1;
-  processes[0].arrivalTime = 0;
-  processes[0].burstTime = process_time();
-  processes[0].burstTimeRemaining = processes[0].burstTime;
+  bool OK_WRR = true;
 
-  for (int i = 1; i < n; i++) {
-    processes[i].pid = i + 1;
-    processes[i].arrivalTime = sleep_time();
-    processes[i].burstTime = process_time();
-    processes[i].burstTimeRemaining = processes[i].burstTime;
-  }
-  */
+  while (OK_WRR) {
+    // The queue for each cycle
+    struct Process cycleQueue[MAX_VALUE];
+    int n = 0;
 
-  bool Ok_WRR = true;
+    WRR(users, cycleQueue, &OK_WRR, &n);
 
-  int n = 0;
+    if (OK_WRR) {
+      qsort(cycleQueue, n, sizeof(struct Process), ProcessCmp);
 
-  wrr(utilizator, Coada, &Ok_WRR, &n);
+      RR(cycleQueue, n);
 
-  while (Ok_WRR)
-  {
-
-    qsort(Coada, n, sizeof(struct Process), ProcessCmp);
-
-    RoundRobin(Coada, n, timeQuantum);
-
-    Output(Coada, n);
-
-    n = 0;
-
-    struct Process Coada[101] = {0};
-
-    wrr(utilizator, Coada, &Ok_WRR, &n);
+      Output(cycleQueue, n);
+      printf("\n");
+    }
   }
 
-  return 0;
+  return EXIT_SUCCESS;
 }

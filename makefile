@@ -1,5 +1,8 @@
 run: compile
 	./bin/main
 
-compile:
-	g++ -o bin/main src/main.c
+debug: compile
+	gdb ./bin/main
+
+compile: 
+	g++ -g -o bin/main src/main.c
