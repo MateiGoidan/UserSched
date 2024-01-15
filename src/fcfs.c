@@ -1,3 +1,8 @@
+/*
+ * This code, unlike the code from maine does not include the sorting algorithm
+ * SJF after the WW algorithm
+ */
+
 #include "..//hfiles/process.h"
 #include "../hfiles/user.h"
 #include <linux/limits.h>
@@ -110,7 +115,7 @@ void ProcessConstructor(int numbProcess, struct Process *processes) {
 
 struct User UserConstructor() {
   struct User user;
-  int numbProcess = rand() % (int)1e1 + 1;
+  int numbProcess = rand() % (int)1e2 + 1;
   struct Process *Test =
       (struct Process *)(malloc(numbProcess * sizeof(struct Process)));
 
@@ -129,7 +134,7 @@ int main(int argc, char *argv[]) {
   avgWT = 0;
   avgTT = 0;
   timeQuantum = rand() % (int)1e2 + 1;
-  numbTests = rand() % (int)1e2 + 1;
+  numbTests = rand() % (int)1e3 + 1;
 
   printf("+------+--------------+-------------+--------------+---------------"
          "---+\n");
@@ -141,7 +146,7 @@ int main(int argc, char *argv[]) {
   for (int currentTest = 0; currentTest < numbTests; currentTest++) {
     avgTestWT = 1;
     avgTestTT = 1;
-    numbUsers = rand() % (int)1e1 + 1;
+    numbUsers = rand() % (int)1e3 + 1;
     struct User users[MAX_VALUE];
 
     for (int i = 0; i < numbUsers; i++) {
@@ -158,8 +163,6 @@ int main(int argc, char *argv[]) {
       WRR(users, cycleQueue, &OK_WRR, &n);
 
       if (OK_WRR) {
-        qsort(cycleQueue, n, sizeof(struct Process), ProcessCmp);
-
         RR(cycleQueue, n);
 
         Output(cycleQueue, n);
